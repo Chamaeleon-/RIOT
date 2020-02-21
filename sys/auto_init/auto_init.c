@@ -104,9 +104,10 @@
 
 #define ENABLE_DEBUG (0)
 #include "debug.h"
-
 void auto_init(void)
 {
+    extern void auto_init_native_temp_saul(void);
+    auto_init_native_temp_saul();
 #ifdef MODULE_AUTO_INIT_RANDOM
     void auto_init_random(void);
     auto_init_random();
