@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "phydat.h"
 #include "board.h"
 #include "saul.h"
@@ -10,20 +11,22 @@ static int read(const void *dev, phydat_t *res)
 {
     (void) dev;
     // const saul_native_params_t *params = *((const saul_native_params_t **)dev);
-    // FILE *fp;
-    // char str[MAXCHAR];
-    // char* filename = "temp";
+    FILE *fp;
+    char str[MAXCHAR];
+    char* filename = "temp";
     res->scale = 0;
     res->unit = UNIT_TEMP_C;
-    res->val[0] = 25;
-    // fp = fopen(filename, "r");
-    // if (fp == NULL){
-    //     printf("Could not open file %s",filename);
-    //     return 1;
-    // }
-    // while (fgets(str, MAXCHAR, fp) != NULL)
-    //     res->val[0] = stoi(str);
-    // fclose(fp);
+    res->val[0] = 00;
+    fp = fopen(filename, "r");
+    if (fp == NULL){
+        printf("Could not open file %s",filename);
+        return 1;
+    }
+    while (fgets(str, MAXCHAR, fp) != NULL)
+    {
+        res->val[0] = atoi(str);
+    }
+    fclose(fp);
     return 1;
 }
 
