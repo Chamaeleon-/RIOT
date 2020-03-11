@@ -1,6 +1,7 @@
 #include "log.h"
 #include "saul_reg.h"
 #include "saul_periph.h"
+#include "native_temp_saul.h"
 
 /**
  * @brief   Memory for the registry entries
@@ -26,4 +27,5 @@ void auto_init_native_temp_saul(void)
     saul_reg_entry.driver = &native_temp_saul_driver;
     /* add to registry */
     saul_reg_add(&(saul_reg_entry));
+    saul_native_init();
 }

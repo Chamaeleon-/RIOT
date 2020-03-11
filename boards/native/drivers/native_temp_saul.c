@@ -4,30 +4,29 @@
 #include "board.h"
 #include "saul.h"
 #include "saul_periph.h"
-
+#include "native_temp_saul.h"
 #define MAXCHAR 1000
+
+FILE *sensorfile = NULL;
 
 static int read(const void *dev, phydat_t *res) 
 {
     (void) dev;
     // const saul_native_params_t *params = *((const saul_native_params_t **)dev);
-    FILE *fp;
     char str[MAXCHAR];
-    char* filename = "temp";
     res->scale = 0;
     res->unit = UNIT_TEMP_C;
     res->val[0] = 00;
-    fp = fopen(filename, "r");
-    if (fp == NULL){
-        printf("Could not open file %s",filename);
-        return 1;
+    if (sensorfile == NULL)
+    {
+        printf("Could not read file\n");
+        return 0;
     }
-    while (fgets(str, MAXCHAR, fp) != NULL)
+    while (fgets(str, MAXCHAR, sensorfile) != NULL)
     {
         res->val[0] = atoi(str);
     }
-    fclose(fp);
-    return 1;
+    return 1; //  number of values written into to result data structure [1-3] 
 }
 
 const saul_driver_t native_temp_saul_driver = {
@@ -35,3 +34,14 @@ const saul_driver_t native_temp_saul_driver = {
     .write = saul_notsup,
     .type = SAUL_SENSE_TEMP,
 };
+
+int saul_native_init(void)
+{
+    char* filename = "temp";
+    sensorfile = fopen(filename, "r");
+    if (sensorfile == NULL){
+        printf("Could not open file %s\n",filename);
+        return 1;
+    }
+    return 0;
+}
