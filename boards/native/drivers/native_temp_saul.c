@@ -10,7 +10,8 @@
 
 FILE *sensorfile = NULL;
 int8_t last_value = 0;
-__time_t valid_until = 0;
+int8_t valid_until = 0;
+int8_t now = 6;
 
 static int read(const void *dev, phydat_t *res) 
 {
@@ -21,18 +22,18 @@ static int read(const void *dev, phydat_t *res)
     res->unit = UNIT_TEMP_C;
     res->val[0] = 00;
 
-    // if (now <= valid_until){
-    //     res->val[0] = last_value;
-    //     return 1;
-    // }
-    // else
-    // {
+    if (now <= valid_until){
+        res->val[0] = last_value;
+        return 1;
+    }
+    else
+    {
         if (sensorfile == NULL)
         {
             printf("Could not read file\n");
             return 0;
         }
-        // while(valid_until < now){
+        while(valid_until < now){
             if (fgets(str, MAXCHAR, sensorfile) != NULL)
             {
                 char* value;
@@ -41,18 +42,18 @@ static int read(const void *dev, phydat_t *res)
                 value = strtok(NULL, ",");
                 last_value = atoi(value);
                 printf("Value valid until: %s\n", time);
-                // valid_until = &time;
+                valid_until = atoi(time);
             }
             else
             {
                 return 0;
             }
             
-        // }
+        }
         res->val[0] = last_value;
         return 1; /* number of values written into to result data structure [1-3] */
 
-    // }
+    }
     return 0;
 
 }
