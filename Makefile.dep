@@ -26,6 +26,22 @@ ifneq (,$(filter ssp,$(USEMODULE)))
   FEATURES_REQUIRED += ssp
 endif
 
+ifneq (,$(filter mpu_stack_guard,$(USEMODULE)))
+  FEATURES_REQUIRED += cortexm_mpu
+endif
+
+ifneq (,$(filter mpu_noexec_ram,$(USEMODULE)))
+  FEATURES_REQUIRED += cortexm_mpu
+endif
+
+ifneq (,$(filter auto_init_gnrc_netif,$(USEMODULE)))
+  USEMODULE += gnrc_netif_init_devs
+endif
+
+ifneq (,$(filter auto_init_saul,$(USEMODULE)))
+  USEMODULE += saul_init_devs
+endif
+
 ifneq (,$(filter csma_sender,$(USEMODULE)))
   USEMODULE += random
   USEMODULE += xtimer
@@ -59,15 +75,9 @@ ifneq (,$(filter gnrc_lorawan,$(USEMODULE)))
   USEMODULE += xtimer
   USEMODULE += random
   USEMODULE += hashes
-  USEMODULE += crypto
+  USEMODULE += crypto_aes
   USEMODULE += netdev_layer
   USEMODULE += gnrc_neterr
-endif
-
-ifneq (,$(filter nhdp,$(USEMODULE)))
-  USEMODULE += sock_udp
-  USEMODULE += xtimer
-  USEMODULE += oonf_rfc5444
 endif
 
 ifneq (,$(filter sntp,$(USEMODULE)))
@@ -94,6 +104,10 @@ ifneq (,$(filter gnrc_dhcpv6_client,$(USEMODULE)))
   USEMODULE += gnrc_ipv6_nib
   USEMODULE += gnrc_netif
   USEMODULE += gnrc_sock_udp
+endif
+
+ifneq (,$(filter gnrc_dhcpv6_client_6lbr,$(USEMODULE)))
+  USEMODULE += gnrc_dhcpv6_client
 endif
 
 ifneq (,$(filter gnrc_uhcpc,$(USEMODULE)))
@@ -143,11 +157,6 @@ ifneq (,$(filter netdev_tap,$(USEMODULE)))
   USEMODULE += netif
   USEMODULE += netdev_eth
   USEMODULE += iolist
-endif
-
-ifneq (,$(filter gnrc_tftp,$(USEMODULE)))
-  USEMODULE += gnrc_udp
-  USEMODULE += xtimer
 endif
 
 ifneq (,$(filter gnrc_rpl_p2p,$(USEMODULE)))
@@ -431,7 +440,7 @@ ifneq (,$(filter newlib,$(USEMODULE)))
   ifeq (,$(filter newlib_syscalls_%,$(USEMODULE)))
     USEMODULE += newlib_syscalls_default
   endif
-  ifeq (,$(filter stdio_cdc_acm stdio_native stdio_null stdio_rtt,$(USEMODULE)))
+  ifeq (,$(filter stdio_cdc_acm stdio_native stdio_null stdio_rtt slipdev_stdio,$(USEMODULE)))
     USEMODULE += stdio_uart
   endif
 endif
@@ -478,7 +487,7 @@ ifneq (,$(filter stdio_uart,$(USEMODULE)))
   FEATURES_REQUIRED += periph_uart
 endif
 
-ifneq (,$(filter stdio_cdc_acm stdio_null stdio_uart,$(USEMODULE)))
+ifneq (,$(filter stdio_cdc_acm stdio_null stdio_uart slipdev_stdio,$(USEMODULE)))
   # stdio_rtt cannot be used when another STDIO is loaded
   DISABLE_MODULE += stdio_rtt
 endif
@@ -605,15 +614,6 @@ ifneq (,$(filter fib,$(USEMODULE)))
   USEMODULE += posix_headers
 endif
 
-ifneq (,$(filter oonf_rfc5444,$(USEMODULE)))
-  USEMODULE += oonf_common
-endif
-
-ifneq (,$(filter oonf_common,$(USEMODULE)))
-  USEPKG += oonf_api
-  USEMODULE += posix_sockets
-endif
-
 # if any log_* is used, also use LOG pseudomodule
 ifneq (,$(filter log_%,$(USEMODULE)))
   USEMODULE += log
@@ -687,12 +687,6 @@ ifneq (,$(filter arduino_pwm,$(FEATURES_USED)))
   FEATURES_REQUIRED += periph_pwm
 endif
 
-ifneq (,$(filter xtimer,$(USEMODULE)))
-  DEFAULT_MODULE += auto_init_xtimer
-  FEATURES_REQUIRED += periph_timer
-  USEMODULE += div
-endif
-
 ifneq (,$(filter saul,$(USEMODULE)))
   USEMODULE += phydat
 endif
@@ -736,7 +730,6 @@ ifneq (,$(filter can_linux,$(USEMODULE)))
 endif
 
 ifneq (,$(filter can,$(USEMODULE)))
-  DEFAULT_MODULE += auto_init_can
   USEMODULE += can_raw
   ifneq (,$(filter can_mbox,$(USEMODULE)))
     USEMODULE += core_mbox
@@ -871,8 +864,11 @@ endif
 
 ifneq (,$(filter gcoap,$(USEMODULE)))
   USEMODULE += nanocoap
-  USEMODULE += gnrc_sock_udp
+  USEMODULE += gnrc_sock_async
+  USEMODULE += sock_async_event
   USEMODULE += sock_util
+  USEMODULE += event_callback
+  USEMODULE += event_timeout
 endif
 
 ifneq (,$(filter luid,$(USEMODULE)))
@@ -1022,6 +1018,28 @@ ifneq (,$(filter periph_uart_nonblocking,$(USEMODULE)))
   FEATURES_REQUIRED += periph_uart
 endif
 
+# include ztimer dependencies
+ifneq (,$(filter ztimer%,$(USEMODULE)))
+  include $(RIOTBASE)/sys/ztimer/Makefile.dep
+endif
+
+# handle xtimer's deps. Needs to be done *after* ztimer
+ifneq (,$(filter xtimer,$(USEMODULE)))
+  ifeq (,$(filter ztimer_xtimer_compat,$(USEMODULE)))
+    # xtimer is used, ztimer xtimer wrapper is not
+    DEFAULT_MODULE += auto_init_xtimer
+    USEMODULE += div
+    ifeq (,$(filter xtimer_on_ztimer,$(USEMODULE)))
+      # ztimer is not used, so use *periph_timer as low-level timer*.
+      FEATURES_REQUIRED += periph_timer
+    else
+      # will use *ztimer_usec as low-level timer*
+    endif
+  else
+  # ztimer_xtimer_compat is used, all of *xtimer's API will be mapped on ztimer.*
+  endif
+endif
+
 # Enable periph_gpio when periph_gpio_irq is enabled
 ifneq (,$(filter periph_gpio_irq,$(USEMODULE)))
   FEATURES_REQUIRED += periph_gpio
@@ -1060,15 +1078,41 @@ ifneq (,$(filter ecc_%,$(USEMODULE)))
   USEMODULE += ecc
 endif
 
+ifneq (,$(filter test_utils_interactive_sync,$(USEMODULE)))
+  ifneq (,$(filter shell,$(USEMODULE)))
+    DEFAULT_MODULE += test_utils_interactive_sync_shell
+  endif
+endif
+
 # recursively catch transitive dependencies
 USEMODULE := $(sort $(USEMODULE))
 USEPKG := $(sort $(USEPKG))
 ifneq ($(OLD_USEMODULE) $(OLD_USEPKG),$(USEMODULE) $(USEPKG))
   include $(RIOTBASE)/Makefile.dep
-endif
+else
+  # set all USED periph_% init modules as DEFAULT_MODULE
+  ifneq (,$(filter periph_init, $(USEMODULE)))
+    DEFAULT_MODULE += $(subst periph_,periph_init_,$(filter periph_%,$(USEMODULE)))
+  endif
 
-# Add auto_init_% DEFAULT_MODULES. This is done after the recursive cach since
-# none of these modules can trigger dependency resolution.
-ifneq (,$(filter auto_init,$(USEMODULE)))
-  USEMODULE += $(filter auto_init_%,$(filter-out $(DISABLE_MODULE),$(DEFAULT_MODULE)))
+  # Add auto_init_% DEFAULT_MODULES. This is done after the recursive cach since
+  # none of these modules can trigger dependency resolution.
+  DEFAULT_MODULE := $(sort $(DEFAULT_MODULE))
+  ifneq (,$(filter auto_init,$(USEMODULE)))
+    USEMODULE += $(filter auto_init_%,$(filter-out $(DISABLE_MODULE),$(DEFAULT_MODULE)))
+  endif
+
+  # Add auto_init_periph_% to DEFAULT_MODULES. This is done after the recursive
+  # cach since none of these modules can trigger dependency resolution.
+  ifneq (,$(filter periph_init,$(USEMODULE)))
+    USEMODULE += $(filter periph_init_%,$(filter-out $(DISABLE_MODULE),$(DEFAULT_MODULE)))
+  endif
+
+  # Add test_utils_interactive_sync_shell
+  ifneq (,$(filter test_utils_interactive_sync,$(USEMODULE)))
+    USEMODULE += $(filter test_utils_interactive_sync_%, \
+      $(filter-out $(DISABLE_MODULE),$(DEFAULT_MODULE)))
+  endif
+
+  USEMODULE := $(sort $(USEMODULE))
 endif

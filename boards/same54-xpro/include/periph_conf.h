@@ -78,7 +78,7 @@ static const uart_conf_t uart_config[] = {
         .dev      = &SERCOM2->USART,
         .rx_pin   = GPIO_PIN(PB, 24),
         .tx_pin   = GPIO_PIN(PB, 25),
-#ifdef MODULE_SAM0_PERIPH_UART_HW_FC
+#ifdef MODULE_PERIPH_UART_HW_FC
         .rts_pin  = GPIO_UNDEF,
         .cts_pin  = GPIO_UNDEF,
 #endif
@@ -86,7 +86,7 @@ static const uart_conf_t uart_config[] = {
         .rx_pad   = UART_PAD_RX_1,
         .tx_pad   = UART_PAD_TX_0,
         .flags    = UART_FLAG_NONE,
-        .gclk_src = SAM0_GCLK_MAIN,
+        .gclk_src = SAM0_GCLK_48MHZ,
     }
 };
 
@@ -112,7 +112,7 @@ static const spi_conf_t spi_config[] = {
         .clk_mux  = GPIO_MUX_C,
         .miso_pad = SPI_PAD_MISO_3,
         .mosi_pad = SPI_PAD_MOSI_0_SCK_1,
-        .gclk_src = SAM0_GCLK_MAIN,
+        .gclk_src = SAM0_GCLK_48MHZ,
 
     }
 };

@@ -382,6 +382,7 @@ static int _preparse_advertise(uint8_t *adv, size_t len, uint8_t **buf)
         DEBUG("DHCPv6 client: packet too small or transaction ID wrong\n");
         return -1;
     }
+    len -= sizeof(dhcpv6_msg_t);
     for (dhcpv6_opt_t *opt = (dhcpv6_opt_t *)(&adv[sizeof(dhcpv6_msg_t)]);
          len > 0; len -= _opt_len(opt), opt = _opt_next(opt)) {
         if (len > orig_len) {
@@ -411,7 +412,7 @@ static int _preparse_advertise(uint8_t *adv, size_t len, uint8_t **buf)
     if ((cid == NULL) || (sid == NULL) || (ia_pd == NULL)) {
         DEBUG("DHCPv6 client: ADVERTISE does not contain either server ID, "
               "client ID or IA_PD option\n");
-        return false;
+        return -1;
     }
     if (!_check_status_opt(status) || !_check_cid_opt(cid)) {
         return -1;
@@ -466,6 +467,10 @@ static void _parse_advertise(uint8_t *adv, size_t len)
     /* might not have been executed when not received in first retransmission
      * window => redo even if already done */
     if (_preparse_advertise(adv, len, NULL) < 0) {
+        uint32_t delay = _irt_us(DHCPV6_SOL_TIMEOUT, true);
+        /* SOLICIT new server */
+        timer.callback = _post_solicit_servers;
+        xtimer_set(&timer, delay);
         return;
     }
     DEBUG("DHCPv6 client: scheduling REQUEST\n");
@@ -478,7 +483,8 @@ static void _parse_advertise(uint8_t *adv, size_t len)
                     dhcpv6_opt_ia_pd_t *ia_pd = (dhcpv6_opt_ia_pd_t *)opt;
                     unsigned pd_t1, pd_t2;
                     uint32_t ia_id = byteorder_ntohl(ia_pd->ia_id);
-                    size_t ia_pd_len = byteorder_ntohs(ia_pd->len);
+                    size_t ia_pd_len = byteorder_ntohs(ia_pd->len) -
+                                       (sizeof(dhcpv6_opt_ia_pd_t) - sizeof(dhcpv6_opt_t));
                     size_t ia_pd_orig_len = ia_pd_len;
 
                     if (pfx_leases[i].parent.ia_id.id != ia_id) {
@@ -581,7 +587,7 @@ static bool _parse_reply(uint8_t *rep, size_t len)
     if (!_check_status_opt(status)) {
         return false;
     }
-    len = orig_len;
+    len = orig_len - sizeof(dhcpv6_msg_t);
     for (dhcpv6_opt_t *opt = (dhcpv6_opt_t *)(&rep[sizeof(dhcpv6_msg_t)]);
          len > 0; len -= _opt_len(opt), opt = _opt_next(opt)) {
         switch (byteorder_ntohs(opt->type)) {
@@ -592,7 +598,8 @@ static bool _parse_reply(uint8_t *rep, size_t len)
                     ia_pd = (dhcpv6_opt_ia_pd_t *)opt;
                     unsigned pd_t1, pd_t2;
                     uint32_t ia_id = byteorder_ntohl(ia_pd->ia_id);
-                    size_t ia_pd_len = byteorder_ntohs(ia_pd->len);
+                    size_t ia_pd_len = byteorder_ntohs(ia_pd->len) -
+                                       (sizeof(dhcpv6_opt_ia_pd_t) - sizeof(dhcpv6_opt_t));
                     size_t ia_pd_orig_len = ia_pd_len;
 
                     if (lease->parent.ia_id.id != ia_id) {

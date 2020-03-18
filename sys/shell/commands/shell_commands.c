@@ -24,6 +24,7 @@
 #include "shell_commands.h"
 
 extern int _reboot_handler(int argc, char **argv);
+extern int _version_handler(int argc, char **argv);
 
 #ifdef MODULE_CONFIG
 extern int _id_handler(int argc, char **argv);
@@ -158,17 +159,13 @@ extern int _loramac_handler(int argc, char **argv);
 extern int _nimble_netif_handler(int argc, char **argv);
 #endif
 
-#ifdef MODULE_TEST_UTILS_INTERACTIVE_SYNC
-extern int _test_start(int argc, char **argv);
-extern int _test_ready(int argc, char **argv);
-#endif
-
 #ifdef MODULE_SUIT_COAP
 extern int _suit_handler(int argc, char **argv);
 #endif
 
 const shell_command_t _shell_command_list[] = {
     {"reboot", "Reboot the node", _reboot_handler},
+    {"version", "Prints current RIOT_VERSION", _version_handler},
 #ifdef MODULE_CONFIG
     {"id", "Gets or sets the node's id.", _id_handler},
 #endif
@@ -272,10 +269,6 @@ const shell_command_t _shell_command_list[] = {
 #endif
 #ifdef MODULE_NIMBLE_NETIF
     { "ble", "Manage BLE connections for NimBLE", _nimble_netif_handler },
-#endif
-#ifdef MODULE_TEST_UTILS_INTERACTIVE_SYNC
-    { "r", "Test sync, Ready query", _test_ready },
-    { "s", "Test sync, Start test trigger", _test_start },
 #endif
 #ifdef MODULE_SUIT_COAP
     { "suit", "Trigger a SUIT firmware update", _suit_handler },

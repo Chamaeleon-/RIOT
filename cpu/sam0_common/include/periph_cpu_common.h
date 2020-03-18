@@ -22,6 +22,7 @@
 #define PERIPH_CPU_COMMON_H
 
 #include "cpu.h"
+#include "exti_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -211,7 +212,7 @@ typedef struct {
     SercomUsart *dev;       /**< pointer to the used UART device */
     gpio_t rx_pin;          /**< pin used for RX */
     gpio_t tx_pin;          /**< pin used for TX */
-#ifdef MODULE_SAM0_PERIPH_UART_HW_FC
+#ifdef MODULE_PERIPH_UART_HW_FC
     gpio_t rts_pin;          /**< pin used for RTS */
     gpio_t cts_pin;          /**< pin used for CTS */
 #endif
@@ -351,6 +352,45 @@ typedef struct {
  * @param[in] mux   Mux value
  */
 void gpio_init_mux(gpio_t pin, gpio_mux_t mux);
+
+/**
+ * @brief   Called before the power management enters a power mode
+ *
+ * @param[in] deep
+ */
+void gpio_pm_cb_enter(int deep);
+
+/**
+ * @brief   Called after the power management left a power mode
+ *
+ * @param[in] deep
+ */
+void gpio_pm_cb_leave(int deep);
+
+/**
+ * @brief   Wrapper for cortexm_sleep calling power management callbacks
+ *
+ * @param[in] deep
+ */
+static inline void sam0_cortexm_sleep(int deep)
+{
+#ifdef MODULE_PERIPH_GPIO
+    gpio_pm_cb_enter(deep);
+#endif
+
+    cortexm_sleep(deep);
+
+#ifdef MODULE_PERIPH_GPIO
+    gpio_pm_cb_leave(deep);
+#endif
+}
+
+/**
+ * @brief   Disable alternate function (PMUX setting) for a PORT pin
+ *
+ * @param[in] pin   Pin to reset the multiplexing for
+ */
+void gpio_disable_mux(gpio_t pin);
 
 /**
  * @brief   Returns the frequency of a GCLK provider.

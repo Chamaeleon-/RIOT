@@ -115,7 +115,7 @@ static int test_send(void)
         return 0;
     }
     /* send packet to MAC layer */
-    gnrc_netapi_send(_mac_pid, pkt);
+    gnrc_netif_send(gnrc_netif_get_by_pid(_mac_pid), pkt);
     /* wait for packet status and check */
     msg_receive(&msg);
     if ((msg.type != GNRC_NETERR_MSG_TYPE) ||
@@ -152,7 +152,7 @@ static int test_receive(void)
     /* register for GNRC_NETTYPE_UNDEF */
     gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &me);
     /* fire ISR event */
-    _dev.netdev.event_callback((netdev_t *)&_dev.netdev, NETDEV_EVENT_ISR);
+    netdev_trigger_event_isr((netdev_t *)&_dev.netdev);
     /* wait for packet from MAC layer*/
     msg_receive(&msg);
     /* check message */

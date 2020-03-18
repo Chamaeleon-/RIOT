@@ -65,11 +65,7 @@ static netdev_t *at86rfmega_dev;
 #else
 static void _irq_handler(void *arg)
 {
-    netdev_t *dev = (netdev_t *) arg;
-
-    if (dev->event_callback) {
-        dev->event_callback(dev, NETDEV_EVENT_ISR);
-    }
+    netdev_trigger_event_isr(arg);
 }
 #endif
 
@@ -97,6 +93,9 @@ static int _init(netdev_t *netdev)
     }
     spi_release(dev->params.spi);
 #endif
+
+    /* reset hardware into a defined state */
+    at86rf2xx_hardware_reset(dev);
 
     /* test if the device is responding */
     if (at86rf2xx_reg_read(dev, AT86RF2XX_REG__PART_NUM) != AT86RF2XX_PARTNUM) {
@@ -274,6 +273,7 @@ static int _set_state(at86rf2xx_t *dev, netopt_state_t state)
             }
             break;
         case NETOPT_STATE_RESET:
+            at86rf2xx_hardware_reset(dev);
             at86rf2xx_reset(dev);
             break;
         default:
@@ -758,7 +758,7 @@ ISR(TRX24_RX_END_vect, ISR_BLOCK)
 
     ((at86rf2xx_t *)at86rfmega_dev)->irq_status |= AT86RF2XX_IRQ_STATUS_MASK__RX_END;
     /* Call upper layer to process received data */
-    at86rfmega_dev->event_callback(at86rfmega_dev, NETDEV_EVENT_ISR);
+    netdev_trigger_event_isr(at86rfmega_dev);
 
     atmega_exit_isr();
 }
@@ -802,7 +802,7 @@ ISR(TRX24_TX_END_vect, ISR_BLOCK)
         dev->irq_status |= AT86RF2XX_IRQ_STATUS_MASK__TX_END;
 
         /* Call upper layer to process if data was send successful */
-        at86rfmega_dev->event_callback(at86rfmega_dev, NETDEV_EVENT_ISR);
+        netdev_trigger_event_isr(at86rfmega_dev);
     }
 
     atmega_exit_isr();

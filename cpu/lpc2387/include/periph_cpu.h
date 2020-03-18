@@ -166,6 +166,7 @@ typedef enum {
  */
 #define DAC_NUMOF           (1U)
 
+#ifndef DOXYGEN
 /**
  * @brief   Possible ADC resolution settings
  * @{
@@ -185,6 +186,7 @@ typedef enum {
     ADC_RES_3BIT  = 0b111,  /**< ADC resolution:  3 bit */
 } adc_res_t;
 /** @} */
+#endif /* ndef DOXYGEN */
 
 /**
  * @brief   ADC device configuration
@@ -195,7 +197,42 @@ typedef struct {
     uint32_t pinsel_msk;    /**< PINSEL Mask for ADC pin */
 } adc_conf_t;
 
+#ifndef DOXYGEN
+/**
+ * @brief   Override I2C clock speed values
+ * @{
+ */
+#define HAVE_I2C_SPEED_T
+typedef enum {
+    I2C_SPEED_LOW    =  10000,  /**< low speed mode:  ~10 kbit/s */
+    I2C_SPEED_NORMAL = 100000,  /**< normal mode:    ~100 kbit/s */
+    I2C_SPEED_FAST   = 400000,  /**< fast mode:      ~400 kbit/s */
+} i2c_speed_t;
 /* @} */
+#endif /* ndef DOXYGEN */
+
+/**
+ * @brief   I2C device configuration
+ */
+typedef struct {
+    lpc23xx_i2c_t *dev;     /**< pointer to the I2C device  */
+    i2c_speed_t speed;      /**< I2C bus speed              */
+    uint8_t irq_prio;       /**< priority of the I2C IRQ    */
+    uint8_t pinsel_sda;     /**< PINSEL# of the SDA pin     */
+    uint8_t pinsel_scl;     /**< PINSEL# of the SCL pin     */
+    uint32_t pinsel_msk_sda;/**< SDA PINSEL Mask            */
+    uint32_t pinsel_msk_scl;/**< SCL PINSEL Mask            */
+} i2c_conf_t;
+/* @} */
+
+/**
+ * @name   Use shared I2C functions
+ * @{
+ */
+#define PERIPH_I2C_NEED_READ_REG
+#define PERIPH_I2C_NEED_WRITE_REG
+/** @} */
+
 #ifdef __cplusplus
 }
 #endif
