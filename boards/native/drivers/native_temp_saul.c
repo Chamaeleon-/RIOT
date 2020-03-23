@@ -12,7 +12,7 @@
 FILE *sensorfile = NULL;
 int8_t last_value = 0;
 uint32_t valid_until = 0;
-xtimer_ticks32_t last_read = {.ticks32 = 0};
+xtimer_ticks32_t consumed_time = {.ticks32 = 0};
 
 static int read(const void *dev, phydat_t *res) 
 {
@@ -24,7 +24,7 @@ static int read(const void *dev, phydat_t *res)
     res->val[0] = 00;
     
     // TODO : rollover proof solution
-    if (xtimer_now().ticks32 <= valid_until){
+    if (xtimer_now().ticks32 <= consumed_time.ticks32){
         res->val[0] = last_value;
         return 1;
     }
@@ -35,7 +35,7 @@ static int read(const void *dev, phydat_t *res)
             printf("Could not read file\n");
             return 0;
         }
-        while(valid_until < xtimer_now().ticks32){
+        while(consumed_time.ticks32 < xtimer_now().ticks32){
             printf("%lli\n",xtimer_now_usec64());
             if (fgets(str, MAXCHAR, sensorfile) != NULL)
             {
@@ -44,8 +44,10 @@ static int read(const void *dev, phydat_t *res)
                 time = strtok(str, ","); // maybe use strtok_r
                 value = strtok(NULL, ",");
                 last_value = atoi(value);
-                printf("Value valid until: %s\n", time);
                 valid_until = (uint32_t) atoi(time);
+                consumed_time.ticks32 = consumed_time.ticks32 + valid_until;
+                printf("Value valid until: %i\n", consumed_time.ticks32);
+
             }
             else
             {
