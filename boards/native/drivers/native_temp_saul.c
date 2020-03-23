@@ -6,12 +6,13 @@
 #include "saul.h"
 #include "saul_periph.h"
 #include "native_temp_saul.h"
+#include "xtimer.h"
 #define MAXCHAR 1000
 
 FILE *sensorfile = NULL;
 int8_t last_value = 0;
-int8_t valid_until = 0;
-int8_t now = 6;
+uint32_t valid_until = 0;
+xtimer_ticks32_t last_read = {.ticks32 = 0};
 
 static int read(const void *dev, phydat_t *res) 
 {
@@ -21,8 +22,9 @@ static int read(const void *dev, phydat_t *res)
     res->scale = 0;
     res->unit = UNIT_TEMP_C;
     res->val[0] = 00;
-
-    if (now <= valid_until){
+    
+    // TODO : rollover proof solution
+    if (xtimer_now().ticks32 <= valid_until){
         res->val[0] = last_value;
         return 1;
     }
@@ -33,7 +35,8 @@ static int read(const void *dev, phydat_t *res)
             printf("Could not read file\n");
             return 0;
         }
-        while(valid_until < now){
+        while(valid_until < xtimer_now().ticks32){
+            printf("%lli\n",xtimer_now_usec64());
             if (fgets(str, MAXCHAR, sensorfile) != NULL)
             {
                 char* value;
@@ -42,7 +45,7 @@ static int read(const void *dev, phydat_t *res)
                 value = strtok(NULL, ",");
                 last_value = atoi(value);
                 printf("Value valid until: %s\n", time);
-                valid_until = atoi(time);
+                valid_until = (uint32_t) atoi(time);
             }
             else
             {
