@@ -44,8 +44,7 @@ static int read(const void *dev, phydat_t *res)
                 time_or_keyword = strtok(str, ","); // maybe use strtok_r
                 if (strcmp(time_or_keyword,"LOOP") == 0)
                 {
-                    fclose(sensorfile);
-                    saul_native_init();
+                    rewind(sensorfile);
                     continue;
                 }
                 value = strtok(NULL, ",");
