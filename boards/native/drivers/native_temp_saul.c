@@ -12,7 +12,7 @@
 FILE *sensorfile = NULL;
 int8_t last_value = 0;
 uint32_t valid_until = 0;
-xtimer_ticks32_t consumed_time = {.ticks32 = 0};
+xtimer_ticks32_t consumed_time = {.ticks32 = 0}; // TODO use ms instead of ticks
 
 static int read(const void *dev, phydat_t *res) 
 {
@@ -40,11 +40,17 @@ static int read(const void *dev, phydat_t *res)
             if (fgets(str, MAXCHAR, sensorfile) != NULL)
             {
                 char* value;
-                char* time;
-                time = strtok(str, ","); // maybe use strtok_r
+                char* time_or_keyword;
+                time_or_keyword = strtok(str, ","); // maybe use strtok_r
+                if (strcmp(time_or_keyword,"LOOP") == 0)
+                {
+                    fclose(sensorfile);
+                    saul_native_init();
+                    continue;
+                }
                 value = strtok(NULL, ",");
                 last_value = atoi(value);
-                valid_until = (uint32_t) atoi(time);
+                valid_until = (uint32_t) atoi(time_or_keyword);
                 consumed_time.ticks32 = consumed_time.ticks32 + valid_until;
                 printf("Value valid until: %i\n", consumed_time.ticks32);
 
