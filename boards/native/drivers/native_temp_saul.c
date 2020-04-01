@@ -76,6 +76,7 @@ const saul_driver_t native_temp_saul_driver = {
 
 int saul_native_init(void)
 {
+    //TODO make filname a build parameter
     char* filename = "temp";
     sensorfile = fopen(filename, "r");
     if (sensorfile == NULL){

@@ -2,6 +2,7 @@
 #define SAUL_PERIPH_H
 #include <stdint.h>
 
+// TODO use this struc for configuration vars
 typedef struct {
     const char *name;
     char* filename;
