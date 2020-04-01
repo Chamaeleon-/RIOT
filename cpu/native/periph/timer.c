@@ -52,7 +52,7 @@
 #include "debug.h"
 
 #define NATIVE_TIMER_SPEED 1000000
-
+static int speed_shift = 0;
 static unsigned long time_null;
 
 static timer_cb_t _callback;
@@ -66,7 +66,7 @@ static struct itimerval itv;
 static unsigned long ts2ticks(struct timespec *tp)
 {
     /* TODO: check for overflow */
-    return(((unsigned long)tp->tv_sec * NATIVE_TIMER_SPEED) + (tp->tv_nsec / 1000));
+    return(((unsigned long)tp->tv_sec * NATIVE_TIMER_SPEED) + (tp->tv_nsec / 1000)) << speed_shift;
 }
 
 /**
@@ -112,6 +112,7 @@ static void do_timer_set(unsigned int offset)
     if (offset && offset < NATIVE_TIMER_MIN_RES) {
         offset = NATIVE_TIMER_MIN_RES;
     }
+    offset = offset >> speed_shift;
 
     memset(&itv, 0, sizeof(itv));
     itv.it_value.tv_sec = (offset / 1000000);
