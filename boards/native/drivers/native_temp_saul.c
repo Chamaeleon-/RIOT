@@ -22,7 +22,8 @@ static int read(const void *dev, phydat_t *res)
     res->scale = 0;
     res->unit = UNIT_TEMP_C;
     res->val[0] = 00;
-    
+    printf("%u\n",xtimer_now_usec());
+
     // TODO : rollover proof solution
     if (xtimer_now().ticks32 <= consumed_time.ticks32){
         res->val[0] = last_value;
@@ -36,7 +37,6 @@ static int read(const void *dev, phydat_t *res)
             return 0;
         }
         while(consumed_time.ticks32 < xtimer_now().ticks32){
-            printf("%lli\n",xtimer_now_usec64());
             if (fgets(str, MAXCHAR, sensorfile) != NULL)
             {
                 char* value;
@@ -51,7 +51,7 @@ static int read(const void *dev, phydat_t *res)
                 last_value = atoi(value);
                 valid_until = (uint32_t) atoi(time_or_keyword);
                 consumed_time.ticks32 = consumed_time.ticks32 + valid_until;
-                printf("Value valid until: %i\n", consumed_time.ticks32);
+                printf("Value valid until: %u\n", consumed_time.ticks32);
 
             }
             else
@@ -76,7 +76,7 @@ const saul_driver_t native_temp_saul_driver = {
 
 int saul_native_init(void)
 {
-    //TODO make filname a build parameter
+    //TODO make filename a build parameter
     char* filename = "temp";
     sensorfile = fopen(filename, "r");
     if (sensorfile == NULL){
