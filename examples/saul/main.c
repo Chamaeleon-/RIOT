@@ -21,9 +21,15 @@
 #include <stdio.h>
 
 #include "shell.h"
+#include "shell_commands.h"
+extern void handle_input_line(const shell_command_t *command_list, char *line);
+
+extern char user_command[];
 
 int main(void)
 {
+    puts(user_command);
+    handle_input_line(_shell_command_list, user_command);
     puts("Welcome to RIOT!\n");
     puts("Type `help` for help, type `saul` to see all SAUL devices\n");
 
