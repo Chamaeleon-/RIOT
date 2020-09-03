@@ -32,12 +32,13 @@
 #include "shell.h"
 #include "shell_commands.h"
 
-#define ETX '\x03'  /** ASCII "End-of-Text", or ctrl-C */
+#define ETX '\x03' /** ASCII "End-of-Text", or ctrl-C */
 #if !defined(SHELL_NO_ECHO) || !defined(SHELL_NO_PROMPT)
 #ifdef MODULE_NEWLIB
 /* use local copy of putchar, as it seems to be inlined,
  * enlarging code by 50% */
-static void _putchar(int c) {
+static void _putchar(int c)
+{
     putchar(c);
 }
 #else
@@ -62,17 +63,22 @@ static shell_command_handler_t find_handler(const shell_command_t *command_list,
     };
 
     /* iterating over command_lists */
-    for (unsigned int i = 0; i < ARRAY_SIZE(command_lists); i++) {
+    for (unsigned int i = 0; i < ARRAY_SIZE(command_lists); i++)
+    {
 
         const shell_command_t *entry;
 
-        if ((entry = command_lists[i])) {
+        if ((entry = command_lists[i]))
+        {
             /* iterating over commands in command_lists entry */
-            while (entry->name != NULL) {
-                if (strcmp(entry->name, command) == 0) {
+            while (entry->name != NULL)
+            {
+                if (strcmp(entry->name, command) == 0)
+                {
                     return entry->handler;
                 }
-                else {
+                else
+                {
                     entry++;
                 }
             }
@@ -95,13 +101,16 @@ static void print_help(const shell_command_t *command_list)
     };
 
     /* iterating over command_lists */
-    for (unsigned int i = 0; i < ARRAY_SIZE(command_lists); i++) {
+    for (unsigned int i = 0; i < ARRAY_SIZE(command_lists); i++)
+    {
 
         const shell_command_t *entry;
 
-        if ((entry = command_lists[i])) {
+        if ((entry = command_lists[i]))
+        {
             /* iterating over commands in command_lists entry */
-            while (entry->name != NULL) {
+            while (entry->name != NULL)
+            {
                 printf("%-20s %s\n", entry->name, entry->desc);
                 entry++;
             }
@@ -109,7 +118,7 @@ static void print_help(const shell_command_t *command_list)
     }
 }
 
-static void handle_input_line(const shell_command_t *command_list, char *line)
+void handle_input_line(const shell_command_t *command_list, char *line)
 {
     static const char *INCORRECT_QUOTING = "shell: incorrect quoting";
 
@@ -117,52 +126,65 @@ static void handle_input_line(const shell_command_t *command_list, char *line)
     unsigned argc = 0;
     char *pos = line;
     int contains_esc_seq = 0;
-    while (1) {
-        if ((unsigned char) *pos > ' ') {
+    while (1)
+    {
+        if ((unsigned char)*pos > ' ')
+        {
             /* found an argument */
-            if (*pos == '"' || *pos == '\'') {
+            if (*pos == '"' || *pos == '\'')
+            {
                 /* it's a quoted argument */
                 const char quote_char = *pos;
-                do {
+                do
+                {
                     ++pos;
-                    if (!*pos) {
+                    if (!*pos)
+                    {
                         puts(INCORRECT_QUOTING);
                         return;
                     }
-                    else if (*pos == '\\') {
+                    else if (*pos == '\\')
+                    {
                         /* skip over the next character */
                         ++contains_esc_seq;
                         ++pos;
-                        if (!*pos) {
+                        if (!*pos)
+                        {
                             puts(INCORRECT_QUOTING);
                             return;
                         }
                         continue;
                     }
                 } while (*pos != quote_char);
-                if ((unsigned char) pos[1] > ' ') {
+                if ((unsigned char)pos[1] > ' ')
+                {
                     puts(INCORRECT_QUOTING);
                     return;
                 }
             }
-            else {
+            else
+            {
                 /* it's an unquoted argument */
-                do {
-                    if (*pos == '\\') {
+                do
+                {
+                    if (*pos == '\\')
+                    {
                         /* skip over the next character */
                         ++contains_esc_seq;
                         ++pos;
-                        if (!*pos) {
+                        if (!*pos)
+                        {
                             puts(INCORRECT_QUOTING);
                             return;
                         }
                     }
                     ++pos;
-                    if (*pos == '"') {
+                    if (*pos == '"')
+                    {
                         puts(INCORRECT_QUOTING);
                         return;
                     }
-                } while ((unsigned char) *pos > ' ');
+                } while ((unsigned char)*pos > ' ');
             }
 
             /* count the number of arguments we got */
@@ -170,15 +192,18 @@ static void handle_input_line(const shell_command_t *command_list, char *line)
         }
 
         /* zero out the current position (space or quotation mark) and advance */
-        if (*pos > 0) {
+        if (*pos > 0)
+        {
             *pos = 0;
             ++pos;
         }
-        else {
+        else
+        {
             break;
         }
     }
-    if (!argc) {
+    if (!argc)
+    {
         return;
     }
 
@@ -186,27 +211,36 @@ static void handle_input_line(const shell_command_t *command_list, char *line)
     char *argv[argc + 1];
     argv[argc] = NULL;
     pos = line;
-    for (unsigned i = 0; i < argc; ++i) {
-        while (!*pos) {
+    for (unsigned i = 0; i < argc; ++i)
+    {
+        while (!*pos)
+        {
             ++pos;
         }
-        if (*pos == '"' || *pos == '\'') {
+        if (*pos == '"' || *pos == '\'')
+        {
             ++pos;
         }
         argv[i] = pos;
-        while (*pos) {
+        while (*pos)
+        {
             ++pos;
         }
     }
-    for (char **arg = argv; contains_esc_seq && *arg; ++arg) {
-        for (char *c = *arg; *c; ++c) {
-            if (*c != '\\') {
+    for (char **arg = argv; contains_esc_seq && *arg; ++arg)
+    {
+        for (char *c = *arg; *c; ++c)
+        {
+            if (*c != '\\')
+            {
                 continue;
             }
-            for (char *d = c; *d; ++d) {
+            for (char *d = c; *d; ++d)
+            {
                 *d = d[1];
             }
-            if (--contains_esc_seq == 0) {
+            if (--contains_esc_seq == 0)
+            {
                 break;
             }
         }
@@ -214,14 +248,18 @@ static void handle_input_line(const shell_command_t *command_list, char *line)
 
     /* then we call the appropriate handler */
     shell_command_handler_t handler = find_handler(command_list, argv[0]);
-    if (handler != NULL) {
+    if (handler != NULL)
+    {
         handler(argc, argv);
     }
-    else {
-        if (strcmp("help", argv[0]) == 0) {
+    else
+    {
+        if (strcmp("help", argv[0]) == 0)
+        {
             print_help(command_list);
         }
-        else {
+        else
+        {
             printf("shell: command not found: %s\n", argv[0]);
         }
     }
@@ -231,13 +269,16 @@ static int readline(char *buf, size_t size)
 {
     char *line_buf_ptr = buf;
 
-    while (1) {
-        if ((line_buf_ptr - buf) >= ((int) size) - 1) {
+    while (1)
+    {
+        if ((line_buf_ptr - buf) >= ((int)size) - 1)
+        {
             return -1;
         }
 
         int c = getchar();
-        if (c < 0) {
+        if (c < 0)
+        {
             return EOF;
         }
 
@@ -245,7 +286,8 @@ static int readline(char *buf, size_t size)
         /* QEMU transmits only a single '\r' == 13 on hitting enter ("-serial stdio"). */
         /* DOS newlines are handled like hitting enter twice, but empty lines are ignored. */
         /* Ctrl-C cancels the current line. */
-        if (c == '\r' || c == '\n' || c == ETX) {
+        if (c == '\r' || c == '\n' || c == ETX)
+        {
             *line_buf_ptr = '\0';
 #ifndef SHELL_NO_ECHO
             _putchar('\r');
@@ -256,8 +298,10 @@ static int readline(char *buf, size_t size)
             return c == ETX || line_buf_ptr == buf;
         }
         /* QEMU uses 0x7f (DEL) as backspace, while 0x08 (BS) is for most terminals */
-        else if (c == 0x08 || c == 0x7f) {
-            if (line_buf_ptr == buf) {
+        else if (c == 0x08 || c == 0x7f)
+        {
+            if (line_buf_ptr == buf)
+            {
                 /* The line is empty. */
                 continue;
             }
@@ -270,7 +314,8 @@ static int readline(char *buf, size_t size)
             _putchar('\b');
 #endif
         }
-        else {
+        else
+        {
             *line_buf_ptr++ = c;
 #ifndef SHELL_NO_ECHO
             _putchar(c);
@@ -295,14 +340,17 @@ void shell_run_once(const shell_command_t *shell_commands,
 {
     print_prompt();
 
-    while (1) {
+    while (1)
+    {
         int res = readline(line_buf, len);
 
-        if (res == EOF) {
+        if (res == EOF)
+        {
             break;
         }
 
-        if (!res) {
+        if (!res)
+        {
             handle_input_line(shell_commands, line_buf);
         }
 

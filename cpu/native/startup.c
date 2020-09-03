@@ -50,10 +50,13 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-typedef enum {
-    _STDIOTYPE_STDIO = 0,   /**< leave intact */
-    _STDIOTYPE_NULL,        /**< redirect to "/dev/null" */
-    _STDIOTYPE_FILE,        /**< redirect to file */
+#include "shell.h"
+
+typedef enum
+{
+    _STDIOTYPE_STDIO = 0, /**< leave intact */
+    _STDIOTYPE_NULL,      /**< redirect to "/dev/null" */
+    _STDIOTYPE_FILE,      /**< redirect to file */
 } _stdiotype_t;
 
 int _native_null_in_pipe[2];
@@ -65,6 +68,8 @@ pid_t _native_id;
 unsigned _native_rng_seed = 0;
 int _native_rng_mode = 0;
 const char *_native_unix_socket_path = NULL;
+
+char user_command[SHELL_DEFAULT_BUFSIZE] = "";
 
 #ifdef MODULE_NETDEV_TAP
 #include "netdev_tap_params.h"
@@ -87,43 +92,44 @@ netdev_tap_params_t netdev_tap_params[NETDEV_TAP_MAX];
 socket_zep_params_t socket_zep_params[SOCKET_ZEP_MAX];
 #endif
 
-static const char short_opts[] = ":hi:s:deEoc:"
+static const char short_opts[] = ":hi:s:deEoc:C:"
 #ifdef MODULE_MTD_NATIVE
-    "m:"
+                                 "m:"
 #endif
 #ifdef MODULE_CAN_LINUX
-    "n:"
+                                 "n:"
 #endif
 #ifdef MODULE_SOCKET_ZEP
-    "z:"
+                                 "z:"
 #endif
 #ifdef MODULE_PERIPH_SPIDEV_LINUX
-    "p:"
+                                 "p:"
 #endif
-    "";
+                                 "";
 
 static const struct option long_opts[] = {
-    { "help", no_argument, NULL, 'h' },
-    { "id", required_argument, NULL, 'i' },
-    { "seed", required_argument, NULL, 's' },
-    { "daemonize", no_argument, NULL, 'd' },
-    { "stderr-pipe", no_argument, NULL, 'e' },
-    { "stderr-noredirect", no_argument, NULL, 'E' },
-    { "stdout-pipe", no_argument, NULL, 'o' },
-    { "uart-tty", required_argument, NULL, 'c' },
+    {"help", no_argument, NULL, 'h'},
+    {"id", required_argument, NULL, 'i'},
+    {"seed", required_argument, NULL, 's'},
+    {"daemonize", no_argument, NULL, 'd'},
+    {"stderr-pipe", no_argument, NULL, 'e'},
+    {"stderr-noredirect", no_argument, NULL, 'E'},
+    {"stdout-pipe", no_argument, NULL, 'o'},
+    {"uart-tty", required_argument, NULL, 'c'},
+    {"command", required_argument, NULL, 'C'},
 #ifdef MODULE_MTD_NATIVE
-    { "mtd", required_argument, NULL, 'm' },
+    {"mtd", required_argument, NULL, 'm'},
 #endif
 #ifdef MODULE_CAN_LINUX
-    { "can", required_argument, NULL, 'n' },
+    {"can", required_argument, NULL, 'n'},
 #endif
 #ifdef MODULE_SOCKET_ZEP
-    { "zep", required_argument, NULL, 'z' },
+    {"zep", required_argument, NULL, 'z'},
 #endif
 #ifdef MODULE_PERIPH_SPIDEV_LINUX
-    { "spi", required_argument, NULL, 'p' },
+    {"spi", required_argument, NULL, 'p'},
 #endif
-    { NULL, 0, NULL, '\0' },
+    {NULL, 0, NULL, '\0'},
 };
 
 /**
@@ -134,15 +140,18 @@ static const struct option long_opts[] = {
  */
 void _native_input(_stdiotype_t stdintype)
 {
-    if (real_pipe(_native_null_in_pipe) == -1) {
+    if (real_pipe(_native_null_in_pipe) == -1)
+    {
         err(EXIT_FAILURE, "_native_null_in(): pipe()");
     }
 
-    if (stdintype == _STDIOTYPE_STDIO) {
+    if (stdintype == _STDIOTYPE_STDIO)
+    {
         return;
     }
 
-    if (real_dup2(_native_null_in_pipe[0], STDIN_FILENO) == -1) {
+    if (real_dup2(_native_null_in_pipe[0], STDIN_FILENO) == -1)
+    {
         err(EXIT_FAILURE, "_native_null_in: dup2(STDIN_FILENO)");
     }
 }
@@ -163,30 +172,35 @@ int _native_log_output(_stdiotype_t stdiotype, int output)
 
     assert((output == STDERR_FILENO) || (output == STDOUT_FILENO));
 
-    switch (stdiotype) {
-        case _STDIOTYPE_STDIO:
-            return -1;
-        case _STDIOTYPE_NULL:
-            if ((outfile = real_open("/dev/null", O_WRONLY)) == -1) {
-                err(EXIT_FAILURE, "_native_log_output: open");
-            }
-            break;
-        case _STDIOTYPE_FILE: {
-            /* 20 should suffice for 64-bit PIDs ;-) */
-            char logname[sizeof("/tmp/riot.stderr.") + 20];
-
-            snprintf(logname, sizeof(logname), "/tmp/riot.std%s.%d",
-                     (output == STDOUT_FILENO) ? "out": "err", _native_pid);
-            if ((outfile = real_creat(logname, 0666)) == -1) {
-                err(EXIT_FAILURE, "_native_log_output: open");
-            }
-            break;
+    switch (stdiotype)
+    {
+    case _STDIOTYPE_STDIO:
+        return -1;
+    case _STDIOTYPE_NULL:
+        if ((outfile = real_open("/dev/null", O_WRONLY)) == -1)
+        {
+            err(EXIT_FAILURE, "_native_log_output: open");
         }
-        default:
-            errx(EXIT_FAILURE, "_native_log_output: unknown log type");
-            break;
+        break;
+    case _STDIOTYPE_FILE:
+    {
+        /* 20 should suffice for 64-bit PIDs ;-) */
+        char logname[sizeof("/tmp/riot.stderr.") + 20];
+
+        snprintf(logname, sizeof(logname), "/tmp/riot.std%s.%d",
+                 (output == STDOUT_FILENO) ? "out" : "err", _native_pid);
+        if ((outfile = real_creat(logname, 0666)) == -1)
+        {
+            err(EXIT_FAILURE, "_native_log_output: open");
+        }
+        break;
     }
-    if (real_dup2(outfile, output) == -1) {
+    default:
+        errx(EXIT_FAILURE, "_native_log_output: unknown log type");
+        break;
+    }
+    if (real_dup2(outfile, output) == -1)
+    {
         err(EXIT_FAILURE, "_native_log_output: dup2(output)");
     }
     return outfile;
@@ -194,24 +208,29 @@ int _native_log_output(_stdiotype_t stdiotype, int output)
 
 void daemonize(void)
 {
-    if ((_native_pid = real_fork()) == -1) {
+    if ((_native_pid = real_fork()) == -1)
+    {
         err(EXIT_FAILURE, "daemonize: fork");
     }
 
-    if (_native_pid > 0) {
+    if (_native_pid > 0)
+    {
         real_printf("RIOT pid: %d\n", _native_pid);
         real_exit(EXIT_SUCCESS);
     }
-    else {
+    else
+    {
         _native_pid = real_getpid();
 
         /* detach from current working directory */
-        if (real_chdir("/") == -1) {
+        if (real_chdir("/") == -1)
+        {
             err(EXIT_FAILURE, "daemonize: chdir");
         }
 
         /* detach from process group */
-        if (real_setsid() == -1) {
+        if (real_setsid() == -1)
+        {
             err(EXIT_FAILURE, "daemonize: setsid");
         }
 
@@ -228,13 +247,17 @@ void daemonize(void)
 static void filter_daemonize_argv(char **argv)
 {
     int idx = 0;
-    for (char **narg = argv; *narg != NULL; narg++, idx++) {
-        if (strcmp("-d", narg[0]) == 0) {
+    for (char **narg = argv; *narg != NULL; narg++, idx++)
+    {
+        if (strcmp("-d", narg[0]) == 0)
+        {
             char **xarg = narg;
-            do {
+            do
+            {
                 xarg[0] = xarg[1];
             } while (*xarg++ != NULL);
-            if (optind > 1) {
+            if (optind > 1)
+            {
                 /* adapt optind if changed */
                 optind--;
             }
@@ -248,14 +271,16 @@ void usage_exit(int status)
     real_printf("usage: %s", _progname);
 
 #if defined(MODULE_NETDEV_TAP)
-    for (int i = 0; i < NETDEV_TAP_MAX; i++) {
+    for (int i = 0; i < NETDEV_TAP_MAX; i++)
+    {
         real_printf(" <tap interface %d>", i + 1);
     }
 #endif
     real_printf(" [-i <id>] [-d] [-e|-E] [-o] [-c <tty>]\n");
 #if defined(MODULE_SOCKET_ZEP) && (SOCKET_ZEP_MAX > 0)
     real_printf(" -z [[<laddr>:<lport>,]<raddr>:<rport>]\n");
-    for (int i = 0; i < SOCKET_ZEP_MAX - 1; i++) {
+    for (int i = 0; i < SOCKET_ZEP_MAX - 1; i++)
+    {
         /* for further interfaces the local address must be different so we omit
          * the braces (marking them as optional) to be 100% clear on that */
         real_printf(" -z <laddr>:<lport>,<raddr>:<rport>\n");
@@ -268,52 +293,54 @@ void usage_exit(int status)
     real_printf(" help: %s -h\n\n", _progname);
 
     real_printf("\nOptions:\n"
-"    -h, --help\n"
-"        print this help message\n"
-"    -i <id>, --id=<id>\n"
-"        specify instance id (set by config module)\n"
-"    -s <seed>, --seed=<seed>\n"
-"        specify srandom(3) seed (/dev/random is used instead of random(3) if\n"
-"        the option is omitted)\n"
-"    -d, --daemonize\n"
-"        daemonize native instance\n"
-"    -e, --stderr-pipe\n"
-"        redirect stderr to file\n"
-"    -E, --stderr-noredirect\n"
-"        do not redirect stderr (i.e. leave sterr unchanged despite\n"
-"        daemon/socket io)\n"
-"    -o, --stdout-pipe\n"
-"        redirect stdout to file (/tmp/riot.stdout.PID) when not attached\n"
-"        to socket\n"
-"    -c <tty>, --uart-tty=<tty>\n"
-"        specify TTY device for UART. This argument can be used multiple\n"
-"        times (up to UART_NUMOF)\n"
+                "    -h, --help\n"
+                "        print this help message\n"
+                "    -i <id>, --id=<id>\n"
+                "        specify instance id (set by config module)\n"
+                "    -s <seed>, --seed=<seed>\n"
+                "        specify srandom(3) seed (/dev/random is used instead of random(3) if\n"
+                "        the option is omitted)\n"
+                "    -d, --daemonize\n"
+                "        daemonize native instance\n"
+                "    -C <shell command>, --command <shell command>\n"
+                "    -e, --stderr-pipe\n"
+                "        redirect stderr to file\n"
+                "    -E, --stderr-noredirect\n"
+                "        do not redirect stderr (i.e. leave sterr unchanged despite\n"
+                "        daemon/socket io)\n"
+                "    -o, --stdout-pipe\n"
+                "        redirect stdout to file (/tmp/riot.stdout.PID) when not attached\n"
+                "        to socket\n"
+                "    -c <tty>, --uart-tty=<tty>\n"
+                "        specify TTY device for UART. This argument can be used multiple\n"
+                "        times (up to UART_NUMOF)\n"
 #if defined(MODULE_SOCKET_ZEP) && (SOCKET_ZEP_MAX > 0)
-"    -z [<laddr>:<lport>,]<raddr>:<rport> --zep=[<laddr>:<lport>,]<raddr>:<rport>\n"
-"        provide a ZEP interface with local address and port (<laddr>, <lport>)\n"
-"        and remote address and port (default local: [::]:17754).\n"
-"        Required to be provided SOCKET_ZEP_MAX times\n"
+                "    -z [<laddr>:<lport>,]<raddr>:<rport> --zep=[<laddr>:<lport>,]<raddr>:<rport>\n"
+                "        provide a ZEP interface with local address and port (<laddr>, <lport>)\n"
+                "        and remote address and port (default local: [::]:17754).\n"
+                "        Required to be provided SOCKET_ZEP_MAX times\n"
 #endif
     );
 #ifdef MODULE_MTD_NATIVE
     real_printf(
-"    -m <mtd>, --mtd=<mtd>\n"
-"       specify the file name of mtd emulated device\n");
+        "    -m <mtd>, --mtd=<mtd>\n"
+        "       specify the file name of mtd emulated device\n");
 #endif
 #if defined(MODULE_CAN_LINUX)
     real_printf(
-"    -n <ifnum>:<ifname>, --can <ifnum>:<ifname>\n"
-"        specify CAN interface <ifname> to use for CAN device #<ifnum>\n"
-"        max number of CAN device: %d\n", CAN_DLL_NUMOF);
+        "    -n <ifnum>:<ifname>, --can <ifnum>:<ifname>\n"
+        "        specify CAN interface <ifname> to use for CAN device #<ifnum>\n"
+        "        max number of CAN device: %d\n",
+        CAN_DLL_NUMOF);
 #endif
 #ifdef MODULE_PERIPH_SPIDEV_LINUX
     real_printf(
-"    -p <b>:<d>:<spidev>, --spi=<b>:<d>:<spidev>\n"
-"        specify Linux SPI device to use for CS line d on bus b (in RIOT)\n"
-"        Example: --spi=0:1:/dev/spidev0.0 will assign the file spidev0.0 to\n"
-"                 SPI_DEV(0) and SPI_HWCS(1).\n"
-"        Supports up to %d buses with %d CS lines each.\n", SPI_NUMOF, SPI_MAXCS
-    );
+        "    -p <b>:<d>:<spidev>, --spi=<b>:<d>:<spidev>\n"
+        "        specify Linux SPI device to use for CS line d on bus b (in RIOT)\n"
+        "        Example: --spi=0:1:/dev/spidev0.0 will assign the file spidev0.0 to\n"
+        "                 SPI_DEV(0) and SPI_HWCS(1).\n"
+        "        Supports up to %d buses with %d CS lines each.\n",
+        SPI_NUMOF, SPI_MAXCS);
 #endif
     real_exit(status);
 }
@@ -324,32 +351,39 @@ static void _parse_ep_str(char *ep_str, char **addr, char **port)
     /* read endpoint string in reverse, the last chars are the port and decimal
      * numbers, then a colon, then the address (potentially containing colons,
      * that's why we read in reverse) */
-    for (int i = strlen(ep_str) - 1; (i >= 0) && (*port == NULL); i--) {
-        if (((ep_str[i] < '0') || (ep_str[i] > '9')) && (ep_str[i] != ':')) {
+    for (int i = strlen(ep_str) - 1; (i >= 0) && (*port == NULL); i--)
+    {
+        if (((ep_str[i] < '0') || (ep_str[i] > '9')) && (ep_str[i] != ':'))
+        {
             usage_exit(EXIT_FAILURE);
         }
-        if ((ep_str[i] == ':') && (i >= (int)sizeof("[]"))) {
+        if ((ep_str[i] == ':') && (i >= (int)sizeof("[]")))
+        {
             /* found port delimiter, but we need to make sure it isn't delivered
              * like :<port>. Two characters for either hostname or IP address
              * seems reasonable especially considering, that we need to
              * remove the [] around IPv6 addresses */
             *port = &ep_str[i + 1];
-            if ((ep_str[0] == '[') && (ep_str[i - 1] == ']')) {
+            if ((ep_str[0] == '[') && (ep_str[i - 1] == ']'))
+            {
                 /* addr is in the format [<addr>], strip [] */
                 *addr = &ep_str[1];
                 ep_str[i - 1] = '\0';
             }
-            else if ((ep_str[0] == '[') || (ep_str[i - 1] == ']')) {
+            else if ((ep_str[0] == '[') || (ep_str[i - 1] == ']'))
+            {
                 /* unbalanced brackets */
                 usage_exit(EXIT_FAILURE);
             }
-            else {
+            else
+            {
                 *addr = ep_str;
             }
             ep_str[i] = '\0';
         }
     }
-    if (*port == NULL) {
+    if (*port == NULL)
+    {
         usage_exit(EXIT_FAILURE);
     }
 }
@@ -358,17 +392,20 @@ static void _zep_params_setup(char *zep_str, int zep)
 {
     char *save_ptr, *first_ep, *second_ep;
 
-    if ((first_ep = strtok_r(zep_str, ",", &save_ptr)) == NULL) {
+    if ((first_ep = strtok_r(zep_str, ",", &save_ptr)) == NULL)
+    {
         usage_exit(EXIT_FAILURE);
     }
     second_ep = strtok_r(NULL, ",", &save_ptr);
-    if (second_ep == NULL) {
+    if (second_ep == NULL)
+    {
         socket_zep_params[zep].local_addr = SOCKET_ZEP_LOCAL_ADDR_DEFAULT;
         socket_zep_params[zep].local_port = SOCKET_ZEP_PORT_DEFAULT;
         _parse_ep_str(first_ep, &socket_zep_params[zep].remote_addr,
                       &socket_zep_params[zep].remote_port);
     }
-    else {
+    else
+    {
         _parse_ep_str(first_ep, &socket_zep_params[zep].local_addr,
                       &socket_zep_params[zep].local_port);
         _parse_ep_str(second_ep, &socket_zep_params[zep].remote_addr,
@@ -385,7 +422,7 @@ typedef void (*init_func_t)(int argc, char **argv, char **envp);
  */
 /* Find the extents of the __DATA __mod_init_func section */
 extern init_func_t __init_array_start __asm("section$start$__DATA$__mod_init_func");
-extern init_func_t __init_array_end   __asm("section$end$__DATA$__mod_init_func");
+extern init_func_t __init_array_end __asm("section$end$__DATA$__mod_init_func");
 #else
 /* Linker script provides pointers to the beginning and end of the init array */
 extern init_func_t __init_array_start;
@@ -419,122 +456,146 @@ __attribute__((constructor)) static void startup(int argc, char **argv, char **e
     _stdiotype_t stdouttype = _STDIOTYPE_STDIO;
     _stdiotype_t stdintype = _STDIOTYPE_STDIO;
 
-    while ((c = getopt_long(argc, argv, short_opts, long_opts, &opt_idx)) >= 0) {
-        switch (c) {
-            case 0:
-                /* fall through to 'h' */
-            case 'h':
-                usage_exit(EXIT_SUCCESS);
-                break;
-            case 'i':
-                _native_id = atol(optarg);
-                break;
-            case 's':
-                _native_rng_seed = atol(optarg);
-                _native_rng_mode = 1;
-                break;
-            case 'd':
-                dmn = true;
-                break;
-            case 'e':
-                if (force_stderr) {
-                    /* -e and -E are mutually exclusive */
-                    usage_exit(EXIT_FAILURE);
-                }
-                stderrtype = _STDIOTYPE_FILE;
-                break;
-            case 'E':
-                if (stderrtype == _STDIOTYPE_FILE) {
-                    /* -e and -E are mutually exclusive */
-                    usage_exit(EXIT_FAILURE);
-                }
-                force_stderr = true;
-                break;
-            case 'o':
-                stdouttype = _STDIOTYPE_FILE;
-                break;
-            case 'c':
-                tty_uart_setup(uart++, optarg);
-                break;
+    while ((c = getopt_long(argc, argv, short_opts, long_opts, &opt_idx)) >= 0)
+    {
+        switch (c)
+        {
+        case 0:
+            /* fall through to 'h' */
+        case 'h':
+            usage_exit(EXIT_SUCCESS);
+            break;
+        case 'C':
+            puts("found command parameter");
+            strncpy(user_command, optarg, sizeof(user_command));
+            break;
+        case 'i':
+            _native_id = atol(optarg);
+            break;
+        case 's':
+            _native_rng_seed = atol(optarg);
+            _native_rng_mode = 1;
+            break;
+        case 'd':
+            dmn = true;
+            break;
+        case 'e':
+            if (force_stderr)
+            {
+                /* -e and -E are mutually exclusive */
+                usage_exit(EXIT_FAILURE);
+            }
+            stderrtype = _STDIOTYPE_FILE;
+            break;
+        case 'E':
+            if (stderrtype == _STDIOTYPE_FILE)
+            {
+                /* -e and -E are mutually exclusive */
+                usage_exit(EXIT_FAILURE);
+            }
+            force_stderr = true;
+            break;
+        case 'o':
+            stdouttype = _STDIOTYPE_FILE;
+            break;
+        case 'c':
+            tty_uart_setup(uart++, optarg);
+            break;
 #ifdef MODULE_MTD_NATIVE
-            case 'm':
-                ((mtd_native_dev_t *)mtd0)->fname = strndup(optarg, PATH_MAX - 1);
-                break;
+        case 'm':
+            ((mtd_native_dev_t *)mtd0)->fname = strndup(optarg, PATH_MAX - 1);
+            break;
 #endif
 #if defined(MODULE_CAN_LINUX)
-            case 'n':{
-                int i;
-                i = atol(optarg);
-                if (i >= (int)CAN_DLL_NUMOF) {
-                    usage_exit(EXIT_FAILURE);
-                }
-                while ((*optarg != ':') && (*optarg != '\0')) {
-                    optarg++;
-                }
-                if (*optarg == '\0') {
-                    usage_exit(EXIT_FAILURE);
-                }
+        case 'n':
+        {
+            int i;
+            i = atol(optarg);
+            if (i >= (int)CAN_DLL_NUMOF)
+            {
+                usage_exit(EXIT_FAILURE);
+            }
+            while ((*optarg != ':') && (*optarg != '\0'))
+            {
                 optarg++;
-                strncpy(candev_linux_conf[i].interface_name, optarg,
-                        CAN_MAX_SIZE_INTERFACE_NAME);
-                }
-                break;
+            }
+            if (*optarg == '\0')
+            {
+                usage_exit(EXIT_FAILURE);
+            }
+            optarg++;
+            strncpy(candev_linux_conf[i].interface_name, optarg,
+                    CAN_MAX_SIZE_INTERFACE_NAME);
+        }
+        break;
 #endif
 #ifdef MODULE_SOCKET_ZEP
-            case 'z':
-                _zep_params_setup(optarg, zeps++);
-                break;
+        case 'z':
+            _zep_params_setup(optarg, zeps++);
+            break;
 #endif
 #ifdef MODULE_PERIPH_SPIDEV_LINUX
-            case 'p': {
-                    long bus = strtol(optarg, &optarg, 10);
-                    if (*optarg != ':') {
-                        usage_exit(EXIT_FAILURE);
-                    }
-                    long cs = strtol(++optarg, &optarg, 10);
-                    if (*optarg != ':') {
-                        usage_exit(EXIT_FAILURE);
-                    }
-                    if (spidev_linux_setup(bus, cs, ++optarg) < 0) {
-                        usage_exit(EXIT_FAILURE);
-                    }
-                }
-                break;
-#endif
-            default:
+        case 'p':
+        {
+            long bus = strtol(optarg, &optarg, 10);
+            if (*optarg != ':')
+            {
                 usage_exit(EXIT_FAILURE);
-                break;
+            }
+            long cs = strtol(++optarg, &optarg, 10);
+            if (*optarg != ':')
+            {
+                usage_exit(EXIT_FAILURE);
+            }
+            if (spidev_linux_setup(bus, cs, ++optarg) < 0)
+            {
+                usage_exit(EXIT_FAILURE);
+            }
+        }
+        break;
+#endif
+        default:
+            usage_exit(EXIT_FAILURE);
+            break;
         }
     }
 #ifdef MODULE_NETDEV_TAP
-    for (int i = 0; i < NETDEV_TAP_MAX; i++) {
-        if (argv[optind + i] == NULL) {
+    for (int i = 0; i < NETDEV_TAP_MAX; i++)
+    {
+        if (argv[optind + i] == NULL)
+        {
             /* no tap parameter left */
             usage_exit(EXIT_FAILURE);
         }
     }
 #endif
 #ifdef MODULE_SOCKET_ZEP
-    if (zeps != SOCKET_ZEP_MAX) {
+    if (zeps != SOCKET_ZEP_MAX)
+    {
         /* not enough ZEPs given */
         usage_exit(EXIT_FAILURE);
     }
 #endif
 
-    if (dmn) {
+    if (dmn)
+    {
         filter_daemonize_argv(_native_argv);
-        if (stderrtype == _STDIOTYPE_STDIO) {
+        if (stderrtype == _STDIOTYPE_STDIO)
+        {
             stderrtype = _STDIOTYPE_NULL;
         }
-        if (stdouttype == _STDIOTYPE_STDIO) {
+        if (stdouttype == _STDIOTYPE_STDIO)
+        {
             stdouttype = _STDIOTYPE_NULL;
         }
-        if (stdintype == _STDIOTYPE_STDIO) {
+        if (stdintype == _STDIOTYPE_STDIO)
+        {
             stdintype = _STDIOTYPE_NULL;
         }
         daemonize();
     }
-    if (force_stderr) {
+    if (force_stderr)
+    {
         stderrtype = _STDIOTYPE_STDIO;
     }
 
@@ -556,9 +617,11 @@ __attribute__((constructor)) static void startup(int argc, char **argv, char **e
      */
     init_func_t *init_array_ptr = &__init_array_start;
     DEBUG("__init_array_start: %p\n", (void *)init_array_ptr);
-    while (init_array_ptr != &__init_array_end) {
+    while (init_array_ptr != &__init_array_end)
+    {
         /* Skip everything which has already been run */
-        if ((*init_array_ptr) == startup) {
+        if ((*init_array_ptr) == startup)
+        {
             /* Found ourselves, move on to calling the rest of the constructors */
             DEBUG("%18p - myself\n", (void *)init_array_ptr);
             ++init_array_ptr;
@@ -567,7 +630,8 @@ __attribute__((constructor)) static void startup(int argc, char **argv, char **e
         DEBUG("%18p - skip\n", (void *)init_array_ptr);
         ++init_array_ptr;
     }
-    while (init_array_ptr != &__init_array_end) {
+    while (init_array_ptr != &__init_array_end)
+    {
         /* call all remaining constructors */
         DEBUG("%18p - call\n", (void *)init_array_ptr);
         (*init_array_ptr)(argc, argv, envp);
@@ -578,7 +642,8 @@ __attribute__((constructor)) static void startup(int argc, char **argv, char **e
     native_cpu_init();
     native_interrupt_init();
 #ifdef MODULE_NETDEV_TAP
-    for (int i = 0; i < NETDEV_TAP_MAX; i++) {
+    for (int i = 0; i < NETDEV_TAP_MAX; i++)
+    {
         netdev_tap_params[i].tap_name = &argv[optind + i];
     }
 #endif
@@ -587,7 +652,6 @@ __attribute__((constructor)) static void startup(int argc, char **argv, char **e
     board_init();
 
     register_interrupt(SIGUSR1, _reset_handler);
-
     puts("RIOT native hardware initialization complete.\n");
     irq_enable();
     kernel_init();
