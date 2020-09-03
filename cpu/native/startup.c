@@ -70,6 +70,7 @@ int _native_rng_mode = 0;
 const char *_native_unix_socket_path = NULL;
 
 char user_command[SHELL_DEFAULT_BUFSIZE] = "";
+char temperature_filename[256] = "";
 
 #ifdef MODULE_NETDEV_TAP
 #include "netdev_tap_params.h"
@@ -92,7 +93,7 @@ netdev_tap_params_t netdev_tap_params[NETDEV_TAP_MAX];
 socket_zep_params_t socket_zep_params[SOCKET_ZEP_MAX];
 #endif
 
-static const char short_opts[] = ":hi:s:deEoc:C:"
+static const char short_opts[] = ":hi:s:deEoc:C:T:"
 #ifdef MODULE_MTD_NATIVE
                                  "m:"
 #endif
@@ -117,6 +118,7 @@ static const struct option long_opts[] = {
     {"stdout-pipe", no_argument, NULL, 'o'},
     {"uart-tty", required_argument, NULL, 'c'},
     {"command", required_argument, NULL, 'C'},
+    {"temperature-curve", required_argument, NULL, 'T'},
 #ifdef MODULE_MTD_NATIVE
     {"mtd", required_argument, NULL, 'm'},
 #endif
@@ -303,6 +305,8 @@ void usage_exit(int status)
                 "    -d, --daemonize\n"
                 "        daemonize native instance\n"
                 "    -C <shell command>, --command <shell command>\n"
+                "    -T <filename>, --tmperature-curve <filename>\n"
+                "        defines a inputfile for the native saul driver\n"
                 "    -e, --stderr-pipe\n"
                 "        redirect stderr to file\n"
                 "    -E, --stderr-noredirect\n"
@@ -466,8 +470,10 @@ __attribute__((constructor)) static void startup(int argc, char **argv, char **e
             usage_exit(EXIT_SUCCESS);
             break;
         case 'C':
-            puts("found command parameter");
             strncpy(user_command, optarg, sizeof(user_command));
+            break;
+        case 'T':
+            strncpy(temperature_filename, optarg, sizeof(temperature_filename));
             break;
         case 'i':
             _native_id = atol(optarg);
