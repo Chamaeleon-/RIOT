@@ -21,7 +21,9 @@
 #include <stdio.h>
 
 #include "shell.h"
+#include "shell_commands.h"
 #include "msg.h"
+#include "xtimer.h"
 
 #define MAIN_QUEUE_SIZE     (8)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
@@ -33,12 +35,20 @@ static const shell_command_t shell_commands[] = {
     { NULL, NULL, NULL }
 };
 
+extern void handle_input_line(const shell_command_t *command_list, char *line);
+
+extern char user_command[];
+
 int main(void)
 {
     /* we need a message queue for the thread running the shell in order to
      * receive potentially fast incoming networking packets */
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     puts("RIOT network stack example application");
+
+    puts(user_command);
+    xtimer_sleep(10);
+    handle_input_line(shell_commands, user_command);
 
     /* start shell */
     puts("All up, running the shell now");

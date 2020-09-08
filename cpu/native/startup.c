@@ -278,7 +278,7 @@ void usage_exit(int status)
         real_printf(" <tap interface %d>", i + 1);
     }
 #endif
-    real_printf(" [-i <id>] [-d] [-e|-E] [-o] [-c <tty>]\n");
+    real_printf(" [-i <id>] [-d] [-C <command>] [-e|-E] [-o] [-c <tty>]\n");
 #if defined(MODULE_SOCKET_ZEP) && (SOCKET_ZEP_MAX > 0)
     real_printf(" -z [[<laddr>:<lport>,]<raddr>:<rport>]\n");
     for (int i = 0; i < SOCKET_ZEP_MAX - 1; i++)
@@ -305,7 +305,7 @@ void usage_exit(int status)
                 "    -d, --daemonize\n"
                 "        daemonize native instance\n"
                 "    -C <shell command>, --command <shell command>\n"
-                "    -T <filename>, --tmperature-curve <filename>\n"
+                "    -T <filename>, --temperature-curve <filename>\n"
                 "        defines a inputfile for the native saul driver\n"
                 "    -e, --stderr-pipe\n"
                 "        redirect stderr to file\n"
